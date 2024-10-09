@@ -75,6 +75,62 @@ func (n *Node) insert(b *BTree, k int) *Node {
 	return n
 }
 
+func (n *Node) deleteFromLeftChild(b *BTree, i int) int {
+	child := n.Children[i]
+	length := len(child.Keys)
+	if len(child.Children) == 0 {
+		key := child.Keys[length-1]
+		child.Keys = child.Keys[:length-1]
+		return key
+	}
+	if len(child.Children[1].Keys) > b.GetMinKeys() {
+	}
+	return 0
+}
+
+func (n *Node) deleteFromRightChild(b *BTree, i int) int {
+	child := n.Children[i]
+	if len(child.Children) == 0 {
+		key := child.Keys[0]
+		child.Keys = child.Keys[1:]
+		return key
+	}
+	if len(child.Children[1].Keys) > b.GetMinKeys() {
+	}
+	return 0
+}
+
+func (n *Node) deleteInternal(b *BTree, i int) {
+	switch {
+	case len(n.Children[i].Keys) > b.GetMinKeys():
+		n.Keys[i] = n.deleteFromLeftChild(b, i)
+	case len(n.Children[i+1].Keys) > b.GetMinKeys():
+		n.Keys[i] = n.deleteFromRightChild(b, i+1)
+	default:
+		// merge two children nodes
+	}
+}
+
+func (n *Node) delete(b *BTree, k int) {
+	index := sort.Search(len(n.Keys), func(i int) bool {
+		return n.Keys[i] >= k
+	})
+
+	if len(n.Children) == 0 && index < len(n.Keys) && n.Keys[index] == k {
+		n.Keys = append(n.Keys[:index], n.Keys[index+1:]...)
+		return
+	}
+
+	if index < len(n.Keys) && n.Keys[index] == k {
+		n.deleteInternal(b, index)
+	} else if len(n.Children[index].Keys) > b.GetMinKeys() {
+		n.Children[index].delete(b, k)
+	} else {
+
+	}
+
+}
+
 type BTree struct {
 	BranchingFactor int
 	Root            *Node
@@ -102,8 +158,16 @@ func (b *BTree) Insert(k int) {
 	}
 }
 
+func (b *BTree) Delete(k int) {
+	b.Root.delete(b, k)
+}
+
 func (b *BTree) GetMaxKeys() int {
 	return 2*b.BranchingFactor - 1
+}
+
+func (b *BTree) GetMinKeys() int {
+	return b.BranchingFactor - 1
 }
 
 func (b *BTree) GetMaxChild() int {
