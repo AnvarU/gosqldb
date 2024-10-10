@@ -216,6 +216,9 @@ func (b *BTree) Insert(k int) {
 
 func (b *BTree) Delete(k int) {
 	b.Root.delete(b, k)
+	if len(b.Root.Keys) == 0 {
+		b.Root = b.Root.Children[0]
+	}
 }
 
 func (b *BTree) GetMaxKeys() int {

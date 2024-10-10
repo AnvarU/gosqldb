@@ -177,5 +177,6 @@ func TestBtreeDeletionWithFixingNodes(t *testing.T) {
 	assert.Equal(t, []int{150, 160, 170, 180}, b.Root.Children[1].Children[2].Keys)
 
 	b.Delete(34)
-	assert.Equal(t, []int{33, 35}, b.Root.Children[0].Children[1].Keys)
+	assert.Equal(t, []int{32, 40, 80, 110, 140}, b.Root.Keys)
+	assert.Equal(t, []int{33, 35}, b.Root.Children[1].Keys)
 }
