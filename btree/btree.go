@@ -77,15 +77,27 @@ func (n *Node) insert(b *BTree, k int) *Node {
 
 func (n *Node) deleteFromLeftChild(b *BTree, i int) int {
 	child := n.Children[i]
-	length := len(child.Keys)
+	keyCount := len(child.Keys)
 	if len(child.Children) == 0 {
-		key := child.Keys[length-1]
-		child.Keys = child.Keys[:length-1]
+		key := child.Keys[keyCount-1]
+		child.Keys = child.Keys[:keyCount-1]
 		return key
 	}
-	if len(child.Children[1].Keys) > b.GetMinKeys() {
+	cCount := len(child.Children)
+	if len(child.Children[cCount-1].Keys) > b.GetMinKeys() {
+		return child.deleteFromLeftChild(b, cCount-1)
+	} else if len(child.Children[cCount-2].Keys) > b.GetMinKeys() {
+		child.Children[cCount-1].Keys = append(child.Children[cCount-1].Keys, 0)
+		copy(child.Children[cCount-1].Keys[1:], child.Children[cCount-1].Keys[:len(child.Children[cCount-1].Keys)-1])
+		child.Children[cCount-1].Keys[0] = child.Keys[keyCount-1]
+
+		child.Keys[keyCount-1] = child.Children[cCount-2].Keys[len(child.Children[cCount-2].Keys)-1]
+		child.Children[cCount-2].Keys = child.Children[cCount-2].Keys[:len(child.Children[cCount-2].Keys)-1]
+		return child.deleteFromLeftChild(b, cCount-1)
+	} else {
+		child.mergeChildren(cCount - 2)
+		return child.deleteFromLeftChild(b, cCount-2)
 	}
-	return 0
 }
 
 func (n *Node) deleteFromRightChild(b *BTree, i int) int {
@@ -95,19 +107,44 @@ func (n *Node) deleteFromRightChild(b *BTree, i int) int {
 		child.Keys = child.Keys[1:]
 		return key
 	}
-	if len(child.Children[1].Keys) > b.GetMinKeys() {
+	if len(child.Children[0].Keys) > b.GetMinKeys() {
+		return child.deleteFromRightChild(b, 0)
+	} else if len(child.Children[1].Keys) > b.GetMinKeys() {
+		child.Children[0].Keys = append(child.Children[0].Keys, child.Keys[0])
+		child.Keys[0] = child.Children[1].Keys[0]
+		child.Children[1].Keys = child.Children[1].Keys[1:]
+		return child.deleteFromRightChild(b, 0)
+	} else {
+		child.mergeChildren(1)
+		return child.deleteFromRightChild(b, 0)
 	}
-	return 0
 }
 
-func (n *Node) deleteInternal(b *BTree, i int) {
+func (n *Node) mergeChildren(i int) {
+	lchild := n.Children[i]
+	rchild := n.Children[i+1]
+
+	lchild.Keys = append(lchild.Keys, n.Keys[i])
+	lchild.Keys = append(lchild.Keys, rchild.Keys...)
+	lchild.Children = append(lchild.Children, rchild.Children...)
+
+	n.Keys = append(n.Keys[:i], n.Keys[i+1:]...)
+	n.Children = append(n.Children[:i+1], n.Children[i+1:]...)
+}
+
+func (n *Node) deleteAndMergeChildren(b *BTree, k, i int) {
+	n.mergeChildren(i)
+	n.Children[i].delete(b, k)
+}
+
+func (n *Node) deleteInternal(b *BTree, k, i int) {
 	switch {
 	case len(n.Children[i].Keys) > b.GetMinKeys():
 		n.Keys[i] = n.deleteFromLeftChild(b, i)
 	case len(n.Children[i+1].Keys) > b.GetMinKeys():
 		n.Keys[i] = n.deleteFromRightChild(b, i+1)
 	default:
-		// merge two children nodes
+		n.deleteAndMergeChildren(b, k, i)
 	}
 }
 
@@ -122,13 +159,32 @@ func (n *Node) delete(b *BTree, k int) {
 	}
 
 	if index < len(n.Keys) && n.Keys[index] == k {
-		n.deleteInternal(b, index)
+		n.deleteInternal(b, k, index)
 	} else if len(n.Children[index].Keys) > b.GetMinKeys() {
 		n.Children[index].delete(b, k)
 	} else {
-
+		child := n.Children[index]
+		if index < len(n.Children)-1 && len(n.Children[index+1].Keys) > b.GetMinKeys() {
+			child.Keys = append(child.Keys, n.Keys[index])
+			n.Keys[index] = n.deleteFromRightChild(b, index+1)
+			child.delete(b, k)
+		} else if index > 0 && len(n.Children[index-1].Keys) > b.GetMinKeys() {
+			child.Keys = append(child.Keys, n.Keys[index])
+			n.Keys[index] = n.deleteFromLeftChild(b, index-1)
+			child.delete(b, k)
+		} else {
+			if index == len(n.Children)-1 {
+				n.mergeChildren(index - 1)
+			} else {
+				n.mergeChildren(index)
+			}
+			if index == 0 {
+				n.Children[index].delete(b, k)
+			} else {
+				n.Children[index-1].delete(b, k)
+			}
+		}
 	}
-
 }
 
 type BTree struct {
