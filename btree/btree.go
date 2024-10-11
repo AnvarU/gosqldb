@@ -1,11 +1,20 @@
 package btree
 
-import "sort"
+import (
+	"fmt"
+	"slices"
+	"sort"
+	"strings"
+)
 
 type Node struct {
 	Keys       []int
 	Children   []*Node
 	parentNode *Node
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf("%v ", n.Keys)
 }
 
 func (n *Node) splitChild(i int) {
@@ -233,8 +242,99 @@ func (b *BTree) GetMaxChild() int {
 	return 2 * b.BranchingFactor
 }
 
+// Used only for pretty print(debugging)
+func (b *BTree) traverse() []prettyLine {
+	lines := make([]prettyLine, 0)
+
+	node := b.Root
+	counters := [2]int{0, 1}
+	depth := 0
+	queue := make([]*Node, 0)
+	queue = append(queue, node)
+	for {
+		if len(queue) == 0 {
+			break
+		}
+
+		node = queue[0]
+		if counters[0] == 0 {
+			depth++
+			counters[0] = counters[1]
+			counters[1] = 0
+
+			newLine := prettyLine{
+				nodes: make([]*Node, 0),
+				depth: depth,
+			}
+			lines = append(lines, newLine)
+		}
+		lines[len(lines)-1].nodes = append(lines[len(lines)-1].nodes, node)
+		queue = queue[1:]
+		if len(node.Children) > 0 {
+			queue = append(queue, node.Children...)
+			counters[1] += len(node.Children)
+		}
+		counters[0]--
+	}
+	return lines
+}
+
+// Used only for debugging
+func (b *BTree) PrettyString() string {
+	lines := b.traverse()
+
+	lines = lines[1:]
+	res := ""
+	slices.Reverse(lines)
+	maxLineLen := 0
+	for _, line := range lines {
+
+		s := line.generatePrettyLine()
+
+		if maxLineLen != 0 {
+			spaces := maxLineLen/2 - len(s)/2
+			s = strings.Repeat(" ", spaces) + s + strings.Repeat(" ", spaces)
+		}
+		if maxLineLen == 0 {
+			maxLineLen = len(s)
+		}
+		res = s + "\n\n" + res
+	}
+
+	s := b.Root.String()
+	spaces := maxLineLen/2 - len(s)/2
+	s = strings.Repeat(" ", spaces) + s + strings.Repeat(" ", spaces)
+	res = s + "\n\n" + res
+
+	return res
+}
+
 func NewBTree(b int) *BTree {
 	return &BTree{
 		BranchingFactor: b,
 	}
+}
+
+// Used only for debugging(this is shitty implementation and should be removed in the future)
+type prettyLine struct {
+	nodes []*Node
+	depth int
+}
+
+func (pl *prettyLine) generatePrettyLine() string {
+	s := ""
+	for _, n := range pl.nodes {
+		childString := ""
+		for _, c := range n.Children {
+			childString += c.String()
+		}
+
+		if len(childString) > 0 {
+			spaces := len(childString)/2 - len(n.String())/2
+			s += strings.Repeat(" ", spaces) + n.String() + strings.Repeat(" ", spaces)
+		} else {
+			s += n.String()
+		}
+	}
+	return s
 }
