@@ -124,7 +124,7 @@ func (n *Node) deleteFromRightChild(b *BTree, i int) int {
 		child.Children[1].Keys = child.Children[1].Keys[1:]
 		return child.deleteFromRightChild(b, 0)
 	} else {
-		child.mergeChildren(1)
+		child.mergeChildren(0)
 		return child.deleteFromRightChild(b, 0)
 	}
 }
@@ -138,7 +138,7 @@ func (n *Node) mergeChildren(i int) {
 	lchild.Children = append(lchild.Children, rchild.Children...)
 
 	n.Keys = append(n.Keys[:i], n.Keys[i+1:]...)
-	n.Children = append(n.Children[:i+1], n.Children[i+1:]...)
+	n.Children = append(n.Children[:i+1], n.Children[i+2:]...)
 }
 
 func (n *Node) deleteAndMergeChildren(b *BTree, k, i int) {
@@ -293,7 +293,9 @@ func (b *BTree) PrettyString() string {
 
 		if maxLineLen != 0 {
 			spaces := maxLineLen/2 - len(s)/2
-			s = strings.Repeat(" ", spaces) + s + strings.Repeat(" ", spaces)
+			if spaces > 0 {
+				s = strings.Repeat(" ", spaces) + s + strings.Repeat(" ", spaces)
+			}
 		}
 		if maxLineLen == 0 {
 			maxLineLen = len(s)
