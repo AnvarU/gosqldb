@@ -29,6 +29,22 @@ func TestBtreeInsertWihoutSplit(t *testing.T) {
 	assert.Equal(t, []int{30, 40, 50, 70}, b.Root.Keys)
 }
 
+func TestBtreeInsertSameKey(t *testing.T) {
+	bFactor := 3
+	b := NewBTree(bFactor)
+
+	b.Insert(50)
+	assert.Equal(t, 1, len(b.Root.Keys))
+	assert.Equal(t, 50, b.Root.Keys[0])
+
+	b.Insert(30)
+	b.Insert(70)
+	b.Insert(30)
+
+	assert.Equal(t, 3, len(b.Root.Keys))
+	assert.Equal(t, []int{30, 50, 70}, b.Root.Keys)
+}
+
 func TestBtreeSplittingRoot(t *testing.T) {
 	bFactor := 3
 	b := NewBTree(bFactor)
@@ -49,7 +65,7 @@ func TestBtreeSplittingRoot(t *testing.T) {
 	assert.Equal(t, 2, len(b.Root.Children))
 	assert.Equal(t, 40, b.Root.Keys[0])
 	assert.Equal(t, []int{30, 32, 35}, b.Root.Children[0].Keys)
-	assert.Equal(t, []int{50, 70}, b.Root.Children[1].Keys)
+	assert.Equal(t, []int{40, 50, 70}, b.Root.Children[1].Keys)
 }
 
 func TestBtreeInsertWithSplit(t *testing.T) {
@@ -57,30 +73,37 @@ func TestBtreeInsertWithSplit(t *testing.T) {
 	b := NewBTree(bFactor)
 
 	keys := []int{
-		50, 30, 70, 40, 35,
-		32, 31, 33, 34, 80,
-		90, 100, 110, 120,
-		130, 140, 150, 160,
-		170, 180,
+		1, 2, 3, 4, 5,
+		6, 7, 8, 9, 10,
+		11, 12, 13, 14,
+		15, 16, 17, 18,
+		19, 20, 21,
 	}
 	for _, v := range keys {
 		b.Insert(v)
 	}
 
-	assert.Equal(t, 1, len(b.Root.Keys))
-	assert.Equal(t, 2, len(b.Root.Children))
-	assert.Equal(t, []int{80}, b.Root.Keys)
-	assert.Equal(t, []int{32, 40}, b.Root.Children[0].Keys)
-	assert.Equal(t, 3, len(b.Root.Children[0].Children))
-	assert.Equal(t, []int{30, 31}, b.Root.Children[0].Children[0].Keys)
-	assert.Equal(t, []int{33, 34, 35}, b.Root.Children[0].Children[1].Keys)
-	assert.Equal(t, []int{50, 70}, b.Root.Children[0].Children[2].Keys)
+	assert.Equal(t, 2, len(b.Root.Keys))
+	assert.Equal(t, 3, len(b.Root.Children))
+	assert.Equal(t, []int{7, 13}, b.Root.Keys)
 
-	assert.Equal(t, []int{110, 140}, b.Root.Children[1].Keys)
+	assert.Equal(t, []int{3, 5}, b.Root.Children[0].Keys)
+	assert.Equal(t, 3, len(b.Root.Children[0].Children))
+	assert.Equal(t, []int{1, 2}, b.Root.Children[0].Children[0].Keys)
+	assert.Equal(t, []int{3, 4}, b.Root.Children[0].Children[1].Keys)
+	assert.Equal(t, []int{5, 6}, b.Root.Children[0].Children[2].Keys)
+
+	assert.Equal(t, []int{9, 11}, b.Root.Children[1].Keys)
 	assert.Equal(t, 3, len(b.Root.Children[1].Children))
-	assert.Equal(t, []int{90, 100}, b.Root.Children[1].Children[0].Keys)
-	assert.Equal(t, []int{120, 130}, b.Root.Children[1].Children[1].Keys)
-	assert.Equal(t, []int{150, 160, 170, 180}, b.Root.Children[1].Children[2].Keys)
+	assert.Equal(t, []int{7, 8}, b.Root.Children[1].Children[0].Keys)
+	assert.Equal(t, []int{9, 10}, b.Root.Children[1].Children[1].Keys)
+	assert.Equal(t, []int{11, 12}, b.Root.Children[1].Children[2].Keys)
+
+	assert.Equal(t, []int{15, 17}, b.Root.Children[2].Keys)
+	assert.Equal(t, 3, len(b.Root.Children[2].Children))
+	assert.Equal(t, []int{13, 14}, b.Root.Children[2].Children[0].Keys)
+	assert.Equal(t, []int{15, 16}, b.Root.Children[2].Children[1].Keys)
+	assert.Equal(t, []int{17, 18, 19, 20, 21}, b.Root.Children[2].Children[2].Keys)
 }
 
 func TestBtreeDeletionFromLeaf(t *testing.T) {
@@ -118,9 +141,11 @@ func TestBtreeDeletionFromInternalNode(t *testing.T) {
 
 	assert.Equal(t, 1, len(b.Root.Keys))
 	assert.Equal(t, []int{12, 15, 18}, b.Root.Children[1].Keys)
+	assert.Equal(t, []int{16, 17, 18}, b.Root.Children[1].Children[2].Keys)
 
 	b.Delete(18)
 	assert.Equal(t, []int{12, 15, 19}, b.Root.Children[1].Keys)
+	assert.Equal(t, []int{16, 17}, b.Root.Children[1].Children[2].Keys)
 }
 
 func TestBtreeDeletionWithMerging(t *testing.T) {

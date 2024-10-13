@@ -10,14 +10,15 @@ func main() {
 	bFactor := 3
 	b := btree.NewBTree(bFactor)
 
-	for i := 1; i < 30; i++ {
-		b.Insert(i)
+	keys := []int{
+		1, 2, 3, 4, 5,
+		6, 7, 8, 9, 10,
+		11, 12, 13, 14,
+		15, 16, 17, 18,
+		19, 20, 21,
 	}
-
-	fmt.Println(b.PrettyString())
-
-	keyToDelete := 27
-	fmt.Println("-- Deleting key:", keyToDelete)
-	b.Delete(keyToDelete)
-	fmt.Println(b.PrettyString())
+	for _, v := range keys {
+		b.Insert(v)
+		fmt.Println(b.PrettyString())
+	}
 }

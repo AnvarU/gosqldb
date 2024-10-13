@@ -17,8 +17,37 @@ func (n *Node) String() string {
 	return fmt.Sprintf("%v ", n.Keys)
 }
 
-func (n *Node) splitChild(i int) {
+func (n *Node) search(k int) (int, bool) {
+	i := sort.Search(len(n.Keys), func(i int) bool {
+		return n.Keys[i] >= k
+	})
+
+	if i < len(n.Keys) && n.Keys[i] == k {
+		return i, true
+	}
+
+	return i, false
+}
+
+func (n *Node) insertKeyAt(k, i int) {
+	n.Keys = append(n.Keys, 0)
+	copy(n.Keys[i+1:], n.Keys[i:])
+	n.Keys[i] = k
+}
+
+func (n *Node) insertChildAt(c *Node, i int) {
+	n.Children = append(n.Children, nil)
+	copy(n.Children[i+1:], n.Children[i:])
+	n.Children[i] = c
+}
+
+func (n *Node) splitChild(i, maxKeys int) bool {
 	childNode := n.Children[i]
+
+	if len(childNode.Keys) != maxKeys {
+		return false
+	}
+
 	leftNode := &Node{
 		Keys: make([]int, len(childNode.Keys)/2),
 	}
@@ -41,16 +70,18 @@ func (n *Node) splitChild(i int) {
 
 	}
 
-	leftoverKey := childNode.Keys[len(childNode.Keys)/2]
-	n.Keys = append(n.Keys, 0)
-	copy(n.Keys[i+1:], n.Keys[i:])
-	n.Keys[i] = leftoverKey
+	leftover := childNode.Keys[len(childNode.Keys)/2]
+	n.insertKeyAt(leftover, i)
 
 	n.Children[i] = leftNode
 	i += 1
-	n.Children = append(n.Children, &Node{})
-	copy(n.Children[i+1:], n.Children[i:])
-	n.Children[i] = rightNode
+	n.insertChildAt(rightNode, i)
+
+	if len(rightNode.Children) == 0 {
+		rightNode.insertKeyAt(leftover, 0)
+	}
+
+	return true
 }
 
 func (n *Node) insert(b *BTree, k int) *Node {
@@ -61,23 +92,22 @@ func (n *Node) insert(b *BTree, k int) *Node {
 		}
 	}
 
-	index := sort.Search(len(n.Keys), func(i int) bool {
-		return n.Keys[i] > k
-	})
-	if len(n.Children) == 0 {
-		n.Keys = append(n.Keys, 0)
-		copy(n.Keys[index+1:], n.Keys[index:])
-		n.Keys[index] = k
-	} else {
-		childNode := n.Children[index]
-		if len(childNode.Keys) == b.GetMaxKeys() {
-			n.splitChild(index)
+	i, found := n.search(k)
+	if found {
+		return n
+	}
 
-			if k > n.Keys[index] {
-				index += 1
-			}
-			childNode = n.Children[index]
+	if len(n.Children) == 0 {
+		n.insertKeyAt(k, i)
+	} else {
+		childNode := n.Children[i]
+		splitted := n.splitChild(i, b.GetMaxKeys())
+
+		if splitted && k > n.Keys[i] {
+			i += 1
+			childNode = n.Children[i]
 		}
+
 		childNode.insert(b, k)
 	}
 
@@ -158,39 +188,37 @@ func (n *Node) deleteInternal(b *BTree, k, i int) {
 }
 
 func (n *Node) delete(b *BTree, k int) {
-	index := sort.Search(len(n.Keys), func(i int) bool {
-		return n.Keys[i] >= k
-	})
+	i, found := n.search(k)
 
-	if len(n.Children) == 0 && index < len(n.Keys) && n.Keys[index] == k {
-		n.Keys = append(n.Keys[:index], n.Keys[index+1:]...)
+	if len(n.Children) == 0 && found {
+		n.Keys = append(n.Keys[:i], n.Keys[i+1:]...)
 		return
 	}
 
-	if index < len(n.Keys) && n.Keys[index] == k {
-		n.deleteInternal(b, k, index)
-	} else if len(n.Children[index].Keys) > b.GetMinKeys() {
-		n.Children[index].delete(b, k)
+	if found {
+		n.deleteInternal(b, k, i)
+	} else if len(n.Children[i].Keys) > b.GetMinKeys() {
+		n.Children[i].delete(b, k)
 	} else {
-		child := n.Children[index]
-		if index < len(n.Children)-1 && len(n.Children[index+1].Keys) > b.GetMinKeys() {
-			child.Keys = append(child.Keys, n.Keys[index])
-			n.Keys[index] = n.deleteFromRightChild(b, index+1)
+		child := n.Children[i]
+		if i < len(n.Children)-1 && len(n.Children[i+1].Keys) > b.GetMinKeys() {
+			child.Keys = append(child.Keys, n.Keys[i])
+			n.Keys[i] = n.deleteFromRightChild(b, i+1)
 			child.delete(b, k)
-		} else if index > 0 && len(n.Children[index-1].Keys) > b.GetMinKeys() {
-			child.Keys = append(child.Keys, n.Keys[index])
-			n.Keys[index] = n.deleteFromLeftChild(b, index-1)
+		} else if i > 0 && len(n.Children[i-1].Keys) > b.GetMinKeys() {
+			child.Keys = append(child.Keys, n.Keys[i])
+			n.Keys[i] = n.deleteFromLeftChild(b, i-1)
 			child.delete(b, k)
 		} else {
-			if index == len(n.Children)-1 {
-				n.mergeChildren(index - 1)
+			if i == len(n.Children)-1 {
+				n.mergeChildren(i - 1)
 			} else {
-				n.mergeChildren(index)
+				n.mergeChildren(i)
 			}
-			if index == 0 {
-				n.Children[index].delete(b, k)
+			if i == 0 {
+				n.Children[i].delete(b, k)
 			} else {
-				n.Children[index-1].delete(b, k)
+				n.Children[i-1].delete(b, k)
 			}
 		}
 	}
@@ -216,7 +244,7 @@ func (b *BTree) Insert(k int) {
 		}
 		newRoot.Children = append(newRoot.Children, b.Root)
 		b.Root = newRoot
-		newRoot.splitChild(0)
+		newRoot.splitChild(0, b.GetMaxKeys())
 		newRoot.insert(b, k)
 	} else {
 		b.Root.insert(b, k)
@@ -305,7 +333,9 @@ func (b *BTree) PrettyString() string {
 
 	s := b.Root.String()
 	spaces := maxLineLen/2 - len(s)/2
-	s = strings.Repeat(" ", spaces) + s + strings.Repeat(" ", spaces)
+	if spaces > 0 {
+		s = strings.Repeat(" ", spaces) + s + strings.Repeat(" ", spaces)
+	}
 	res = s + "\n\n" + res
 
 	return res
